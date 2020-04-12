@@ -15,8 +15,6 @@ const MINUTES       = SECONDS * 60;
 const HOURS         = MINUTES * 60;
 const DAYS          = HOURS * 24;
 const WEEKS         = DAYS * 7;
-const MONTHS        = WEEKS * 4;
-const YEARS         = MONTHS * 12;
 function Milliseconds($n) {
     return $n * MILLISECONDS;
 }
@@ -31,6 +29,9 @@ function Hours($n) {
 }
 function Days($n) {
     return $n * Days;
+}
+function Weeks($n) {
+    return $n * WEEKS;
 }
 function get_fs() {
     return function () {
@@ -56,6 +57,11 @@ function create_cacheable_object($data,$ttl) {
     ];
     return "{$obj['when']};{$obj['cached_at']};{$obj['date']};{$obj['what']}";
 }
+/*
+ * We do it this way to avoid the possibility of code injection.
+ * it's a simple file formate
+ * expiration;cached_at_date;expiration_date;....the data...
+ * */
 function read_cacheable_object($data) {
     $buffer = '';
     $i = 0;
@@ -131,6 +137,10 @@ function Filesystem_Load($key) {
         return null;
     $data = file_get_contents($path);
     $data = read_cacheable_object($data); 
+    do_action('lycan_log', (function () use ($data) { 
+        unset($data['what']);
+        return $data;
+    })(),__NAMESPACE__);
     $time = time();
     if ( $time > $data['when'] ) {
         do_action('lycan_log',"$key is expired, returning null",__NAMESPACE__);

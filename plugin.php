@@ -218,7 +218,7 @@ function init() {
         $expire($key); 
     },10);
     \add_filter('expire_lycan_cache_by_key_scoped_by_user',function ($key) {
-        if ( is_logged_in() )
+        if ( is_logged_in() ) {
             $user = wp_get_current_user();  
             $key = "{$user->ID}_{$key}";
         } else {
@@ -243,4 +243,4 @@ function init() {
         },10,2);
     }
 }
-\add_action('wp_loaded', __NAMESPACE__ . '\init');
+\add_action('init', __NAMESPACE__ . '\init');

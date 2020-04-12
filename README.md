@@ -42,7 +42,12 @@ The filter definition is:
 
 ```php
 <?php
-    add_filter('load_lycan_cache_by_key', $callable,$keyname,$expiry_in_seconds,$return_type);
+    add_filter('load_lycan_cache_by_key', $callable,$keyname,$expiry_in_seconds,$return_type)();
 ```
+
+Notice the final `()`, this is because you are passing a function. If you deactivate the caching plugin, then 
+your code will still run as if nothing happened. The filters do not return values, they return callable 
+functions that have the return values bound, and either use a `return` or `echo` depending on the `$return_type` 
+argument.
 
 

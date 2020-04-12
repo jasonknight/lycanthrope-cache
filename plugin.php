@@ -109,20 +109,25 @@ function _simple_loader($key,$ttl,$callable,$result_type) {
         return $data;
     if ( $result_type == 'return' ) {
         $data = call_user_func_array($callable,[$key,$ttl]);
+        return function () use ($data) {
+            return $data;
+        };
     } else {
         ob_start();
             call_user_func_array($callable,[$key,$ttl]);
             $data = ob_get_contents();
         ob_end_clean();
+        $store($key,$ttl,$data);
+        return function () use ($data) {
+            echo $data;
+        };
     }
-    $store($key,$ttl,$data);
-    return $data;
 }
 function init() {
-    \add_filter('load_lycan_cache_by_key',function ($key,$ttl,$callable,$result_type) {
+    \add_filter('load_lycan_cache_by_key',function ($callable,$key,$ttl,$result_type) {
         return _simple_loader($key,$ttl,$callable,$result_type); 
     },10,4); 
-    \add_filter('load_lycan_cache_by_key_scoped_by_user',function ($key,$ttl,$callable,$result_type) {
+    \add_filter('load_lycan_cache_by_key_scoped_by_user',function ($callable,$key,$ttl,$result_type) {
         $user = wp_get_current_user();  
         $key = "{$user->ID}_{$key}";
         return _simple_loader($key,$ttl,$callable,$result_type); 

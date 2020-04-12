@@ -10,28 +10,23 @@
  */
 namespace Lycanthrope\Cache;
 require_once(__DIR__ . '/settings.php');
-const SECONDS       = 1;
-const MINUTES       = SECONDS * 60;
-const HOURS         = MINUTES * 60;
-const DAYS          = HOURS * 24;
-const WEEKS         = DAYS * 7;
-function Milliseconds($n) {
-    return $n * MILLISECONDS;
-}
-function Seconds($n) {
-    return $n * SECONDS;
-}
-function Minutes($n) {
-    return $n * MINUTES;
-}
-function Hours($n) {
-    return $n * HOURS;
-}
-function Days($n) {
-    return $n * Days;
-}
-function Weeks($n) {
-    return $n * WEEKS;
+function get_fake_fs() {
+    if ( ! file_exists( ABSPATH . '/wp-admin/includes/class-wp-filesystem-base.php' ) ) {
+        throw new \Exception("There is no Filesystem?");
+    }
+    if ( ! class_exists('WP_Filesystem_Base') ) {
+        require_once(ABSPATH . '/wp-admin/includes/class-wp-filesystem-base.php');
+    }
+    if ( ! class_exists('WP_Filesystem_Direct') ) {
+        require_once(ABSPATH . '/wp-admin/includes/class-wp-filesystem-direct.php');
+    }
+    try {
+        $fs = new \WP_Filesystem_Direct([]);
+    } catch (\Exception $e) {
+        print_r($e);
+        wp_die();
+    }
+    return $fs;
 }
 function get_fs() {
     return function () {
@@ -39,6 +34,12 @@ function get_fs() {
         if ( ! function_exists('\WP_Filesystem') ) {
             require_once(ABSPATH . '/wp-admin/includes/file.php');
             \WP_Filesystem();
+        }
+        if ( ! $wp_filesystem ) {
+            // For some reason, on one clients multi-site
+            // there is no wp_filesystem
+           $fs = get_fake_fs(); 
+           return $fs;
         }
         return $wp_filesystem;
     };

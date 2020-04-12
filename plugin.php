@@ -218,8 +218,12 @@ function init() {
         $expire($key); 
     },10);
     \add_filter('expire_lycan_cache_by_key_scoped_by_user',function ($key) {
-        $user = wp_get_current_user();  
-        $key = "{$user->ID}_{$key}";
+        if ( is_logged_in() )
+            $user = wp_get_current_user();  
+            $key = "{$user->ID}_{$key}";
+        } else {
+            $key = "0_{$key}";
+        }
         $expire = apply_filters('expire_function_for_lycan_cache',get_expire_function());
         $expire($key); 
     },10);

@@ -50,4 +50,12 @@ your code will still run as if nothing happened. The filters do not return value
 functions that have the return values bound, and either use a `return` or `echo` depending on the `$return_type` 
 argument.
 
+## Scoped Partial Caching
+
+In some instances you want to cache based on whether or not the user is logged in, or per user. There are two
+filters provided for this, `load_lycan_cache_by_key_scoped_by_user` and `load_lycan_cache_by_key_scoped_by_logged_in`.
+
+When scoping by user, it is the currently logged_in user. When scoping by logged_in it is just whether or not the user is logged in. The logged_in scope creates only two versions, whereas the by_user creates an entry for every single user. 
+and one for a '0' user (i.e. not logged in).
+
 

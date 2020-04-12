@@ -10,6 +10,28 @@
  */
 namespace Lycanthrope\Cache;
 require_once(__DIR__ . '/settings.php');
+const SECONDS       = 1;
+const MINUTES       = SECONDS * 60;
+const HOURS         = MINUTES * 60;
+const DAYS          = HOURS * 24;
+const WEEKS         = DAYS * 7;
+const MONTHS        = WEEKS * 4;
+const YEARS         = MONTHS * 12;
+function Milliseconds($n) {
+    return $n * MILLISECONDS;
+}
+function Seconds($n) {
+    return $n * SECONDS;
+}
+function Minutes($n) {
+    return $n * MINUTES;
+}
+function Hours($n) {
+    return $n * HOURS;
+}
+function Days($n) {
+    return $n * Days;
+}
 function get_fs() {
     return function () {
         global $wp_filesystem;
@@ -21,15 +43,42 @@ function get_fs() {
     };
 }
 function get_expiration_time($ttl) {
-    $time = round(microtime(true) * 1000);
+    $time = time();
     return $time + $ttl;
 }
 function create_cacheable_object($data,$ttl) {
+    $exp = get_expiration_time($ttl);
     $obj = [
-        'when' => get_expiration_time($ttl),
+        'when' => $exp,
+        'cached_at' => date('Y-m-d H:i:s'),
+        'date' => date("Y-m-d H:i:s",$exp),
         'what' => $data,
     ];
-    return var_export($obj,true);
+    return "{$obj['when']};{$obj['cached_at']};{$obj['date']};{$obj['what']}";
+}
+function read_cacheable_object($data) {
+    $buffer = '';
+    $i = 0;
+    $cnt = strlen($data);
+    $semi_colons = 0;
+    $parts = [];
+    while ( $i < $cnt ) {
+        if ( $data[$i] == ';' && $semi_colons < 3 ) {
+            $parts[] = $buffer;
+            $buffer = '';
+            $semi_colons++;
+        } else {
+            $buffer .= $data[$i];
+        }
+        $i++;
+    }
+    list($when,$cached_at,$date) = $parts;
+    return [
+        'when' => intval($when),
+        'cached_at' => $cached_at,
+        'date' => $date,
+        'what' => $buffer,
+    ];
 }
 function write_file_contents($path,$data) {
     $fs = apply_filters('wp_filesystem_for_lycan_cache', get_fs())();
@@ -57,30 +106,38 @@ function get_path_from_key($key) {
     array_unshift( $parts,$fs->wp_content_dir() );
     $parts[] = $hash . ".php";
     $path = join('/',$parts);
+    do_action('lycan_log',"path for $key is $path",__NAMESPACE__);
     return str_replace('//','/',$path);
 }
 function Filesystem_Store($key,$obj,$ttl) {
     $s = settings();
     $path = get_path_from_key($key); 
     $data = create_cacheable_object($obj,$ttl);
-    $data = "<?php return $data; ?>"; // this is to fix the syntax highlighting in stackedit <?php
+    do_action('lycan_log',"writing $key",__NAMESPACE__);
     write_file_contents($path,$data);
 }
 function Filesystem_Expire($key) {
     $s = settings();
     $path = get_path_from_key($key); 
-    if ( file_exists($path) )
+    if ( file_exists($path) ) {
+        do_action('lycan_log',"unlinking $key",__NAMESPACE__);
         unlink($path);
+    }
 }
 function Filesystem_Load($key) {
     $s = settings();
     $path = get_path_from_key($key); 
     if ( !file_exists($path) )
         return null;
-    $data = include($path);
-    $time = round(microtime(true) * 1000);
-    if ( $time > $data['when'] )
+    $data = file_get_contents($path);
+    $data = read_cacheable_object($data); 
+    $time = time();
+    if ( $time > $data['when'] ) {
+        do_action('lycan_log',"$key is expired, returning null",__NAMESPACE__);
+        Filesystem_Expire($key);
         return null;
+    }
+    do_action('lycan_log',"$key is not expired, returning data",__NAMESPACE__);
     return $data['what'];
 }
 function get_load_function() {
@@ -105,8 +162,21 @@ function _simple_loader($key,$ttl,$callable,$result_type) {
     $load = apply_filters('load_function_for_lycan_cache',get_load_function());
     $store = apply_filters('store_function_for_lycan_cache',get_store_function()); 
     $data = $load($key);
-    if ( $data )
-        return $data;
+    /* Somehow I feel this could be streamlined and less
+     * convoluted
+     */
+    if ( $data ) {
+        if ( $result_type == 'return' ) {
+            return function () use($data) {
+                return $data; 
+            };
+        } else {
+            return function () use($data) {
+                echo $data; 
+            };
+        }
+    }
+    // So there was no cache, let's create and return
     if ( $result_type == 'return' ) {
         $data = call_user_func_array($callable,[$key,$ttl]);
         return function () use ($data) {
@@ -124,6 +194,7 @@ function _simple_loader($key,$ttl,$callable,$result_type) {
     }
 }
 function init() {
+    $s = settings();
     \add_filter('load_lycan_cache_by_key',function ($callable,$key,$ttl,$result_type) {
         return _simple_loader($key,$ttl,$callable,$result_type); 
     },10,4); 
@@ -151,5 +222,11 @@ function init() {
         $expire = apply_filters('expire_function_for_lycan_cache',get_expire_function());
         $expire($key); 
     },10);
+    if ( $s->logging == 'on' ) {
+        \add_action('lycan_log',function ($msg,$source='') use($s) {
+            //if ( $source != __NAMESPACE__ )
+            file_put_contents($s->log_file_path, print_r([$msg,$source],true) . PHP_EOL,FILE_APPEND);
+        },10,2);
+    }
 }
 \add_action('wp_loaded', __NAMESPACE__ . '\init');

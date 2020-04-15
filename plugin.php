@@ -214,11 +214,11 @@ function init() {
         $key = "{$user->ID}_{$key}";
         return _simple_loader($key,$ttl,$callable,$result_type); 
     },10,4);
-    \add_filter('expire_lycan_cache_by_key',function ($key) {
+    \add_action('expire_lycan_cache_by_key',function ($key) {
         $expire = get_expire_function();
         $expire($key); 
     },10);
-    \add_filter('expire_lycan_cache_by_key_scoped_by_user',function ($key) {
+    \add_action('expire_lycan_cache_by_key_scoped_by_user',function ($key) {
         if ( is_logged_in() ) {
             $user = wp_get_current_user();  
             $key = "{$user->ID}_{$key}";
@@ -228,7 +228,7 @@ function init() {
         $expire = apply_filters('expire_function_for_lycan_cache',get_expire_function());
         $expire($key); 
     },10);
-    \add_filter('expire_lycan_cache_by_key_scoped_by_logged_in',function ($key) {
+    \add_action('expire_lycan_cache_by_key_scoped_by_logged_in',function ($key) {
         if ( is_logged_in() ) {
             $key = "logged_in{$key}";
         } else {
